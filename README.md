@@ -23,7 +23,27 @@ safeTransferFrom 関数呼び出しが失敗するため、ユーザーはオプ
   
 NFTはホワイトリスト制にする
 
-## [M-8] どのlenderもbuyoutしようとすると、currentLoanOwnerがloanInfoを操作することができる脆弱性
+## [M-8] ERC20やERC721のSafetransfer
+
+### ■ カテゴリー
+
+ERC20，ERC721
+
+### ■ 条件
+
+SafeTransferの呼び出し
+
+### ■ ハッキングの詳細
+
+
+SafeTransferを呼んでいる箇所があるが，規格に非対応のトークンは引き出せなくなりGOXする
+
+### ■ 修正方法
+
+トークンは全てホワイトリスト制にする
+そして操作時にリステッドトークンかどうかrequireすればよい
+
+## [M-9] 契約はフラッシュローンプールとして無料で機能します
 
 ### ■ カテゴリー
 
@@ -33,31 +53,59 @@ NFTはホワイトリスト制にする
 
 ### ■ 修正方法
 
-## [M-9] どのlenderもbuyoutしようとすると、currentLoanOwnerがloanInfoを操作することができる脆弱性
+## [M-10] PUTTY ポジション トークンは非 ERC721 レシーバーに発行される可能性があります
 
 ### ■ カテゴリー
 
+ERC721
+
 ### ■ 条件
+
+ERC721Receiver対応していないコントラクトにミントされたとき
 
 ### ■ ハッキングの詳細
 
+条件をみたすと，GOXする
+
 ### ■ 修正方法
 
-## [M-10] どのlenderもbuyoutしようとすると、currentLoanOwnerがloanInfoを操作することができる脆弱性
+mint関数のロジックにはSafemintのようなものを採用すること
+ただしリエントランシー対策はするべき
+
+```
+     /*  ~~~ EFFECTS ~~~ */
+        // create opposite long/short position for taker
+        bytes32 oppositeOrderHash = hashOppositeOrder(order);
+        positionId = uint256(oppositeOrderHash);
+        // save floorAssetTokenIds if filling a long call order
+        if (order.isLong && order.isCall) {
+            positionFloorAssetTokenIds[uint256(orderHash)] = floorAssetTokenIds;
+        }
+        // save the long position expiration
+        positionExpirations[order.isLong ? uint256(orderHash) : positionId] = block.timestamp + order.duration;
+        emit FilledOrder(orderHash, floorAssetTokenIds, order);
+        /* ~~~ INTERACTIONS ~~~ */
+        _safeMint(order.maker, uint256(orderHash));
+        _saf
+```
+
+## [M-11] FEE変更がユーザーの同意なしに変更可能
 
 ### ■ カテゴリー
 
-### ■ 条件
 
-### ■ ハッキングの詳細
-
-### ■ 修正方法
-## [M-11] どのlenderもbuyoutしようとすると、currentLoanOwnerがloanInfoを操作することができる脆弱性
-
-### ■ カテゴリー
 
 ### ■ 条件
 
+ユーザーがポジションを所持している最中にFEEが変更された場合
+
 ### ■ ハッキングの詳細
 
+条件を満たすとき，FEEはストレージからの絶対参照であるからユーザーは変更後のFEEでの取引を余儀なくされる
+↑「そんなにFEE高いなら取引しなかったのに」問題の発生が予想される
+
 ### ■ 修正方法
+
+- 手数料を格納しOrder、注文が約定されたときに手数料が正しいことを確認して、構造体にハードコードされるようにします。
+- タイムスタンプを追加します。これは完全には軽減されませんが、現在の設定よりは改善されます
+- 過去の手数料と手数料変更のタイムスタンプをメモリ (配列など) に保持して、出金時に作成時の手数料を取得できるようにする
